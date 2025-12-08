@@ -22,6 +22,7 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from launch_ros.substitutions import FindPackageShare
 from launch.conditions import IfCondition
+from launch_ros.actions import Node
 
 
 def generate_launch_description():
@@ -72,6 +73,21 @@ def generate_launch_description():
             'config', 'nav2_params.yaml'
         ]),
         description='Nav2 parameters file'
+    )
+
+    # ===== Static TF Publishers =====
+    # base_link → camera_link static transform
+    # RealSense 카메라가 로봇 중심에서 약간 앞쪽 위에 있다고 가정
+    base_to_camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_camera_tf',
+        arguments=[
+            '0.05', '0.0', '0.1',  # x=5cm 앞, y=0, z=10cm 위
+            '0.0', '0.0', '0.0',   # roll, pitch, yaw = 0
+            'base_link', 'camera_link'
+        ],
+        output='screen'
     )
 
     # ===== Sensor Layer =====
@@ -223,6 +239,9 @@ def generate_launch_description():
         enable_robot_localization_arg,
         enable_ground_constraint_arg,
         nav2_params_file_arg,
+        
+        # Static TF (가장 먼저 - 즉시 필요!)
+        base_to_camera_tf,
         
         # Launch sequence
         realsense_launch,              # 0초: 카메라

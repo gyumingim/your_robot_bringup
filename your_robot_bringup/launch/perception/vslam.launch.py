@@ -3,7 +3,6 @@
 Visual SLAM Launch File
 Launches Isaac ROS Visual SLAM with RealSense camera
 """
-
 from launch import LaunchDescription
 from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
@@ -12,6 +11,19 @@ from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
+    # Static TF: base_link → camera_link
+    # RealSense D435i의 위치 (로봇 중심 기준)
+    base_to_camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='base_to_camera_tf',
+        arguments=[
+            '0.05', '0.0', '0.1',  # x, y, z (카메라 위치)
+            '0.0', '0.0', '0.0',   # roll, pitch, yaw
+            'base_link', 'camera_link'
+        ],
+        output='screen'
+    )
     # Declare launch arguments
     camera_name_arg = DeclareLaunchArgument(
         'camera_name',
@@ -30,7 +42,7 @@ def generate_launch_description():
         default_value='false',
         description='Enable ground constraint for 2D navigation'
     )
-
+    
     camera_name = LaunchConfiguration('camera_name')
     
     # Visual SLAM node as ComposableNode
@@ -54,8 +66,8 @@ def generate_launch_description():
             # Timing
             'image_jitter_threshold_ms': 35.0,
             
-            # Frames
-            'base_frame': 'camera_link',
+            # Frames - ✅ 수정됨: camera_link → base_link
+            'base_frame': 'base_link',
             'map_frame': 'map',
             'odom_frame': 'odom',
             'imu_frame': 'camera_gyro_optical_frame',
@@ -84,7 +96,7 @@ def generate_launch_description():
             ('visual_slam/imu', [camera_name, '/imu']),
         ],
     )
-
+    
     # Container for visual slam
     visual_slam_container = ComposableNodeContainer(
         name='visual_slam_container',
@@ -94,10 +106,11 @@ def generate_launch_description():
         composable_node_descriptions=[visual_slam_node],
         output='screen',
     )
-
+    
     return LaunchDescription([
         camera_name_arg,
         enable_imu_fusion_arg,
         enable_ground_constraint_arg,
+        base_to_camera_tf,  # Static TF 먼저!
         visual_slam_container,
     ])
