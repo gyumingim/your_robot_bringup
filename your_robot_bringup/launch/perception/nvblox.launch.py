@@ -73,7 +73,7 @@ def generate_launch_description():
             ('color/image', [camera_name, '/color/image_raw']),
             ('color/camera_info', [camera_name, '/color/camera_info']),
             ('pointcloud', [camera_name, '/depth/color/points']),
-            ('transform', '/tf'),
+            # TF remapping 제거 - 기본 /tf 사용
             ('pose', '/visual_slam/tracking/odometry'),
         ],
     )

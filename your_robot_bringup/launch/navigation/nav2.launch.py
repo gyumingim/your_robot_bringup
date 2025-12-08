@@ -53,13 +53,12 @@ def generate_launch_description():
             PathJoinSubstitution([
                 FindPackageShare('nav2_bringup'),
                 'launch',
-                'bringup_launch.py'
+                'navigation_launch.py'  # bringup_launch.py 대신 사용 (map 필요 없음)
             ])
         ]),
         launch_arguments={
             'use_sim_time': LaunchConfiguration('use_sim_time'),
             'params_file': LaunchConfiguration('params_file'),
-            'map': LaunchConfiguration('map'),
             'autostart': LaunchConfiguration('autostart'),
         }.items()
     )
