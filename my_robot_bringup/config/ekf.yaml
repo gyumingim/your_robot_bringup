@@ -1,0 +1,46 @@
+### ekf config file ###
+ekf_filter_node:
+  ros__parameters:
+    # 필터 출력 주파수 (Hz)
+    frequency: 30.0
+    
+    # 센서 타임아웃 (초)
+    sensor_timeout: 0.1
+    
+    # 2D 평면 이동만 사용 (실내 로봇은 보통 true)
+    two_d_mode: true
+    
+    # 가속도 발행 여부
+    publish_acceleration: false
+    
+    # TF 발행 여부
+    publish_tf: true
+    
+    # 프레임 설정
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_link
+    world_frame: odom  # odom만 사용하면 odom
+    
+    # ===== 오도메트리 입력 (Visual SLAM) =====
+    odom0: /visual_slam/tracking/odometry
+    odom0_config: [true,  true,  true,    # X, Y, Z 위치
+                   false, false, true,    # roll, pitch, yaw 자세
+                   false, false, false,   # vx, vy, vz 속도
+                   false, false, true,    # vroll, vpitch, vyaw 각속도
+                   false, false, false]   # ax, ay, az 가속도
+    odom0_queue_size: 10
+    odom0_differential: false
+    odom0_relative: false
+    
+    # ===== IMU 입력 =====
+    imu0: /camera/imu
+    imu0_config: [false, false, false,    # X, Y, Z 위치
+                  true,  true,  true,     # roll, pitch, yaw 자세
+                  false, false, false,    # vx, vy, vz 속도
+                  true,  true,  true,     # vroll, vpitch, vyaw 각속도
+                  true,  true,  true]     # ax, ay, az 가속도
+    imu0_queue_size: 10
+    imu0_differential: false
+    imu0_relative: true
+    imu0_remove_gravitational_acceleration: true
