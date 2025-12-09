@@ -55,12 +55,10 @@ def generate_launch_description():
 
             # ===== Depth stream =====
             'enable_depth': LaunchConfiguration('enable_depth'),
-            'depth_module.profile': '640x480x30',  # Resolution: 640x480 @ 30fps
-            'align_depth.enable': True,  # Align depth to color
+            'align_depth.enable': False,  # ✅ DISABLED - reduces USB bandwidth
 
             # ===== Color stream =====
             'enable_color': LaunchConfiguration('enable_color'),
-            'rgb_camera.profile': '640x480x30',
 
             # ===== IMU (CRITICAL for VSLAM!) =====
             'enable_gyro': True,
@@ -69,29 +67,33 @@ def generate_launch_description():
             'accel_fps': 200,  # 200Hz
             'unite_imu_method': 2,  # 2 = copy mode (publish to single /imu topic)
 
-            # ===== Point cloud =====
-            'pointcloud.enable': True,
-            'pointcloud.stream_filter': 2,  # 2 = color aligned pointcloud
-            'pointcloud.allow_no_texture_points': True,
+            # ===== Point cloud - DISABLED to reduce USB load =====
+            'pointcloud.enable': False,  # ✅ DISABLED - reduces USB bandwidth significantly
 
             # ===== CRITICAL: Depth emitter MUST BE OFF for VSLAM! =====
             # Emitter interferes with stereo vision
             'depth_module.emitter_enabled': 0,  # ✅ OFF for VSLAM
             # Set to 1 only if you need depth in dark environments WITHOUT VSLAM
 
-            # ===== Frame rates =====
-            'depth_module.profile': '640x480x30',
-            'infra_profile': '640x480x30',
+            # ===== Frame rates - REDUCED to 15fps for stability =====
+            # Lower frame rate = less USB bandwidth = more stable
+            'depth_module.profile': '640x480x15',  # ✅ Reduced from 30fps to 15fps
+            'rgb_camera.profile': '640x480x15',    # ✅ Reduced from 30fps to 15fps
+            'infra_profile': '640x480x15',         # ✅ Match depth rate for sync
 
-            # ===== Enable image metadata =====
+            # ===== Filters DISABLED =====
             'enable_depth_to_disparity_filter': False,
             'enable_spatial_filter': False,
             'enable_temporal_filter': False,
             'enable_hole_filling_filter': False,
+
+            # ===== Additional USB stability settings =====
+            'decimation_filter.enable': False,  # No decimation
+            'enable_sync': True,  # Sync streams to reduce timing issues
         }],
         output='screen',
         respawn=True,  # ✅ Auto-restart if crashes
-        respawn_delay=2.0,
+        respawn_delay=5.0,  # ✅ Increased from 2s to 5s for more recovery time
     )
 
     return LaunchDescription([
