@@ -149,10 +149,11 @@ def generate_launch_description():
     # PERCEPTION LAYER
     # ===================================================================
 
-    # 2. Visual SLAM (8초 지연 - 카메라 USB 리셋 및 초기화 대기)
+    # 2. Visual SLAM (12초 지연 - 카메라 USB 리셋 및 초기화 대기)
     # ⚠️ CRITICAL: initial_reset=True causes USB reset which takes ~5-6 seconds
+    # Additional time needed for frame stabilization at 15fps
     vslam_launch = TimerAction(
-        period=8.0,
+        period=12.0,
         actions=[
             LogInfo(msg='[2/6] Starting Visual SLAM...'),
             IncludeLaunchDescription(
@@ -172,9 +173,9 @@ def generate_launch_description():
         ]
     )
 
-    # 3. Depth to LaserScan (9초 지연 - VSLAM 이후)
+    # 3. Depth to LaserScan (14초 지연 - VSLAM 이후)
     depthimage_to_laserscan_launch = TimerAction(
-        period=9.0,
+        period=14.0,
         actions=[
             LogInfo(msg='[3/6] Starting Depth to LaserScan...'),
             IncludeLaunchDescription(
@@ -194,11 +195,11 @@ def generate_launch_description():
         ]
     )
 
-    # 4. Nvblox 3D Reconstruction (14초 지연 - VSLAM tracking 시작 대기)
+    # 4. Nvblox 3D Reconstruction (20초 지연 - VSLAM tracking 시작 대기)
     # ⚠️ CRITICAL: Nvblox needs VSLAM to be actively tracking and publishing TF
     # before it can look up base_link in odom frame for map clearing
     nvblox_launch = TimerAction(
-        period=14.0,
+        period=20.0,
         actions=[
             LogInfo(msg='[4/6] Starting Nvblox 3D reconstruction...'),
             IncludeLaunchDescription(
@@ -221,11 +222,11 @@ def generate_launch_description():
     # LOCALIZATION LAYER (OPTIONAL)
     # ===================================================================
 
-    # 5. Robot Localization EKF (12초 지연) - 보통 필요 없음
+    # 5. Robot Localization EKF (18초 지연) - 보통 필요 없음
     # VSLAM이 직접 TF를 publish하므로 EKF는 필요 없음
     # Scout Mini IMU 추가 시 활성화 가능
     robot_localization_launch = TimerAction(
-        period=12.0,
+        period=18.0,
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -246,11 +247,11 @@ def generate_launch_description():
     # NAVIGATION LAYER
     # ===================================================================
 
-    # 6. Nav2 (18초 지연 - VSLAM이 tracking 시작하고 odom 프레임 발행까지 대기)
+    # 6. Nav2 (25초 지연 - VSLAM이 tracking 시작하고 odom 프레임 발행까지 대기)
     # ⚠️ IMPORTANT: VSLAM needs time to initialize and start tracking
     # before Nav2 lifecycle_manager can activate nodes that need odom frame
     nav2_launch = TimerAction(
-        period=18.0,
+        period=25.0,
         actions=[
             LogInfo(msg='[5/6] Starting Nav2 navigation stack...'),
             IncludeLaunchDescription(
@@ -275,9 +276,9 @@ def generate_launch_description():
     # VISUALIZATION LAYER
     # ===================================================================
 
-    # 7. RViz2 (20초 지연 - 모든 노드 준비 후, Nav2 이후)
+    # 7. RViz2 (28초 지연 - 모든 노드 준비 후, Nav2 이후)
     rviz_launch = TimerAction(
-        period=20.0,
+        period=28.0,
         actions=[
             LogInfo(msg='[6/6] Starting RViz2 visualization...'),
             IncludeLaunchDescription(
@@ -345,12 +346,12 @@ def generate_launch_description():
         # ✅ CRITICAL: Static TF FIRST (no delay!)
         base_to_camera_tf,
 
-        # Launch sequence (timed) - delays increased for USB reset stability
-        realsense_launch,              # 0.5초: RealSense camera (initial_reset takes ~5-6s)
-        vslam_launch,                  # 8.0초: Visual SLAM (after camera USB reset)
-        depthimage_to_laserscan_launch,# 9.0초: Depth to LaserScan
-        nvblox_launch,                 # 14.0초: Nvblox 3D reconstruction (VSLAM tracking 대기)
-        robot_localization_launch,     # 12.0초: EKF (optional)
-        nav2_launch,                   # 18.0초: Nav2 navigation (VSLAM odom 대기)
-        rviz_launch,                   # 20.0초: RViz2 visualization
+        # Launch sequence (timed) - delays increased for USB stability with 15fps streams
+        realsense_launch,              # 0.5초: RealSense camera (initial_reset + 15fps init)
+        vslam_launch,                  # 12.0초: Visual SLAM (after camera USB reset + frames stable)
+        depthimage_to_laserscan_launch,# 14.0초: Depth to LaserScan
+        nvblox_launch,                 # 20.0초: Nvblox 3D reconstruction (VSLAM tracking 대기)
+        robot_localization_launch,     # 18.0초: EKF (optional)
+        nav2_launch,                   # 25.0초: Nav2 navigation (VSLAM odom 대기)
+        rviz_launch,                   # 28.0초: RViz2 visualization
     ])
