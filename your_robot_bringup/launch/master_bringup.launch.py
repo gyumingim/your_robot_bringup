@@ -243,9 +243,11 @@ def generate_launch_description():
     # NAVIGATION LAYER
     # ===================================================================
 
-    # 6. Nav2 (5초 지연 - 모든 센서/맵 준비 대기)
+    # 6. Nav2 (10초 지연 - VSLAM이 tracking 시작하고 odom 프레임 발행까지 대기)
+    # ⚠️ IMPORTANT: VSLAM needs time to initialize and start tracking
+    # before Nav2 lifecycle_manager can activate nodes that need odom frame
     nav2_launch = TimerAction(
-        period=5.0,
+        period=10.0,
         actions=[
             LogInfo(msg='[5/6] Starting Nav2 navigation stack...'),
             IncludeLaunchDescription(
@@ -270,9 +272,9 @@ def generate_launch_description():
     # VISUALIZATION LAYER
     # ===================================================================
 
-    # 7. RViz2 (6초 지연 - 모든 노드 준비 후)
+    # 7. RViz2 (11초 지연 - 모든 노드 준비 후, Nav2 이후)
     rviz_launch = TimerAction(
-        period=6.0,
+        period=11.0,
         actions=[
             LogInfo(msg='[6/6] Starting RViz2 visualization...'),
             IncludeLaunchDescription(
@@ -346,6 +348,6 @@ def generate_launch_description():
         depthimage_to_laserscan_launch,# 2.5초: Depth to LaserScan
         nvblox_launch,                 # 3.0초: Nvblox 3D reconstruction
         robot_localization_launch,     # 4.0초: EKF (optional)
-        nav2_launch,                   # 5.0초: Nav2 navigation
-        rviz_launch,                   # 6.0초: RViz2 visualization
+        nav2_launch,                   # 10.0초: Nav2 navigation (VSLAM odom 대기)
+        rviz_launch,                   # 11.0초: RViz2 visualization
     ])
