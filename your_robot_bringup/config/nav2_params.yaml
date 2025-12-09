@@ -1,53 +1,26 @@
 ### nav2_params.yaml
-### Nav2 Configuration with Nvblox Costmap Integration
+### Nav2 Configuration for Isaac ROS Visual SLAM + Nvblox
+###
+### IMPORTANT: This configuration is for VSLAM-based localization
+### - AMCL is NOT used (VSLAM provides map->odom->base_link TF)
+### - Odometry comes from VSLAM (/visual_slam/tracking/odometry)
+### - Costmap uses Nvblox for global map (/nvblox_node/static_map_slice)
+###
+### References:
+### - https://navigation.ros.org/
+### - https://nvidia-isaac-ros.github.io/repositories_and_packages/isaac_ros_nvblox/
 
-amcl:
-  ros__parameters:
-    use_sim_time: False
-    alpha1: 0.2
-    alpha2: 0.2
-    alpha3: 0.2
-    alpha4: 0.2
-    alpha5: 0.2
-    base_frame_id: "base_link"
-    beam_skip_distance: 0.5
-    beam_skip_error_threshold: 0.9
-    beam_skip_threshold: 0.3
-    do_beamskip: false
-    global_frame_id: "map"
-    lambda_short: 0.1
-    laser_likelihood_max_dist: 2.0
-    laser_max_range: 100.0
-    laser_min_range: -1.0
-    laser_model_type: "likelihood_field"
-    max_beams: 60
-    max_particles: 2000
-    min_particles: 500
-    odom_frame_id: "odom"
-    pf_err: 0.05
-    pf_z: 0.99
-    recovery_alpha_fast: 0.0
-    recovery_alpha_slow: 0.0
-    resample_interval: 1
-    robot_model_type: "nav2_amcl::DifferentialMotionModel"
-    save_pose_rate: 0.5
-    sigma_hit: 0.2
-    tf_broadcast: true
-    transform_tolerance: 1.0
-    update_min_a: 0.2
-    update_min_d: 0.25
-    z_hit: 0.5
-    z_max: 0.05
-    z_rand: 0.5
-    z_short: 0.05
-    scan_topic: scan
+# ============================================================
+# NOTE: AMCL section removed - VSLAM handles localization
+# ============================================================
 
 bt_navigator:
   ros__parameters:
     use_sim_time: False
     global_frame: map
     robot_base_frame: base_link
-    odom_topic: /odometry/local
+    # ✅ FIXED: Use VSLAM odometry topic directly
+    odom_topic: /visual_slam/tracking/odometry
     bt_loop_duration: 10
     default_server_timeout: 20
     wait_for_service_timeout: 1000
@@ -117,18 +90,20 @@ controller_server:
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"]
     controller_plugins: ["FollowPath"]
-    
+    # ✅ Use VSLAM odometry
+    odom_topic: /visual_slam/tracking/odometry
+
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
       required_movement_radius: 0.5
       movement_time_allowance: 10.0
-    
+
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
       xy_goal_tolerance: 0.25
       yaw_goal_tolerance: 0.25
-    
+
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: True
@@ -207,9 +182,6 @@ local_costmap:
           raytrace_min_range: 0.0
           obstacle_max_range: 2.5
           obstacle_min_range: 0.0
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
       always_send_full_costmap: True
 
 global_costmap:
@@ -223,23 +195,20 @@ global_costmap:
       robot_radius: 0.22
       resolution: 0.05
       track_unknown_space: true
-      plugins: ["static_layer", "nvblox_layer", "inflation_layer"]
-      
-      # Nvblox costmap plugin
+      # ✅ VSLAM mode: No static map, use nvblox only
+      plugins: ["nvblox_layer", "inflation_layer"]
+
+      # Nvblox costmap plugin - receives map from nvblox
       nvblox_layer:
         plugin: "nvblox::nav2::NvbloxCostmapLayer"
         enabled: True
         nvblox_map_slice_topic: "/nvblox_node/static_map_slice"
-        
-      static_layer:
-        plugin: "nav2_costmap_2d::StaticLayer"
-        map_subscribe_transient_local: True
-        
+
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
         inflation_radius: 0.55
-        
+
       always_send_full_costmap: True
 
 planner_server:
@@ -313,7 +282,8 @@ velocity_smoother:
     min_velocity: [-0.26, 0.0, -1.0]
     max_accel: [2.5, 0.0, 3.2]
     max_decel: [-2.5, 0.0, -3.2]
-    odom_topic: "odom"
+    # ✅ Use VSLAM odometry
+    odom_topic: /visual_slam/tracking/odometry
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
