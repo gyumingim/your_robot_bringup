@@ -127,8 +127,8 @@ The system has **carefully timed initialization** to ensure proper startup:
 | 0.5s | RealSense camera | Small delay to ensure TF is available |
 | 2.0s | Visual SLAM | Wait for camera to fully initialize |
 | 2.5s | Depth to LaserScan | After camera is ready |
-| 3.0s | Nvblox | After VSLAM starts (needs odometry) |
 | 4.0s | Robot Localization EKF | Optional, after odometry available |
+| 6.0s | Nvblox | After VSLAM starts tracking (needs TF: odom→base_link) |
 | 10.0s | Nav2 | Wait for VSLAM to start tracking and publish odom frame |
 | 11.0s | RViz2 | After all nodes are running |
 

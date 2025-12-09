@@ -193,9 +193,11 @@ def generate_launch_description():
         ]
     )
 
-    # 4. Nvblox 3D Reconstruction (3초 지연 - VSLAM odometry 대기)
+    # 4. Nvblox 3D Reconstruction (6초 지연 - VSLAM tracking 시작 대기)
+    # ⚠️ CRITICAL: Nvblox needs VSLAM to be actively tracking and publishing TF
+    # before it can look up base_link in odom frame for map clearing
     nvblox_launch = TimerAction(
-        period=3.0,
+        period=6.0,
         actions=[
             LogInfo(msg='[4/6] Starting Nvblox 3D reconstruction...'),
             IncludeLaunchDescription(
@@ -346,7 +348,7 @@ def generate_launch_description():
         realsense_launch,              # 0.5초: RealSense camera
         vslam_launch,                  # 2.0초: Visual SLAM
         depthimage_to_laserscan_launch,# 2.5초: Depth to LaserScan
-        nvblox_launch,                 # 3.0초: Nvblox 3D reconstruction
+        nvblox_launch,                 # 6.0초: Nvblox 3D reconstruction (VSLAM tracking 대기)
         robot_localization_launch,     # 4.0초: EKF (optional)
         nav2_launch,                   # 10.0초: Nav2 navigation (VSLAM odom 대기)
         rviz_launch,                   # 11.0초: RViz2 visualization
