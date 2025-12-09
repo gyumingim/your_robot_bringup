@@ -129,8 +129,8 @@ The system has **carefully timed initialization** to ensure proper startup:
 | 2.5s | Depth to LaserScan | After camera is ready |
 | 3.0s | Nvblox | After VSLAM starts (needs odometry) |
 | 4.0s | Robot Localization EKF | Optional, after odometry available |
-| 5.0s | Nav2 | Wait for all sensors and maps ready |
-| 6.0s | RViz2 | After all nodes are running |
+| 10.0s | Nav2 | Wait for VSLAM to start tracking and publish odom frame |
+| 11.0s | RViz2 | After all nodes are running |
 
 **⚠️ CRITICAL:** Do NOT change these timings without understanding the dependencies!
 

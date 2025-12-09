@@ -287,3 +287,19 @@ velocity_smoother:
     odom_duration: 0.1
     deadband_velocity: [0.0, 0.0, 0.0]
     velocity_timeout: 1.0
+
+# ============================================================
+# LIFECYCLE MANAGER - Controls Nav2 node startup/shutdown
+# ============================================================
+# ⚠️ IMPORTANT: Increased timeouts to wait for VSLAM to start tracking
+# and publish odom frame before Nav2 nodes activate
+lifecycle_manager_navigation:
+  ros__parameters:
+    use_sim_time: False
+    autostart: true
+    # Timeout for node bonds (seconds) - increased to wait for VSLAM
+    bond_timeout: 60.0
+    # Timeout for lifecycle transitions (seconds)
+    # Increased to allow costmaps to wait for TF
+    attempt_respawn_reconnection: true
+    bond_respawn_max_duration: 30.0
