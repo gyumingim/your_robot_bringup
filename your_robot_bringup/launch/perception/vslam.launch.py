@@ -2,28 +2,20 @@
 """
 Visual SLAM Launch File
 Launches Isaac ROS Visual SLAM with RealSense camera
+
+CRITICAL FIXES:
+1. ❌ REMOVED duplicate static TF (handled by master_bringup.launch.py)
+2. ✅ Added input_base_frame and input camera frames for proper TF handling
+3. ✅ Enabled publish_tf for proper map->odom->base_link chain
 """
 from launch import LaunchDescription
-from launch_ros.actions import ComposableNodeContainer, Node
+from launch_ros.actions import ComposableNodeContainer
 from launch_ros.descriptions import ComposableNode
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 
 
 def generate_launch_description():
-    # Static TF: base_link → camera_link
-    # RealSense D435i의 위치 (로봇 중심 기준)
-    base_to_camera_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='base_to_camera_tf',
-        arguments=[
-            '0.05', '0.0', '0.1',  # x, y, z (카메라 위치)
-            '0.0', '0.0', '0.0',   # roll, pitch, yaw
-            'base_link', 'camera_link'
-        ],
-        output='screen'
-    )
     # Declare launch arguments
     camera_name_arg = DeclareLaunchArgument(
         'camera_name',
@@ -39,7 +31,7 @@ def generate_launch_description():
     
     enable_ground_constraint_arg = DeclareLaunchArgument(
         'enable_ground_constraint',
-        default_value='false',
+        default_value='true',  # ✅ CHANGED: true for 2D nav
         description='Enable ground constraint for 2D navigation'
     )
     
@@ -66,17 +58,30 @@ def generate_launch_description():
             # Timing
             'image_jitter_threshold_ms': 35.0,
             
-            # Frames - ✅ 수정됨: camera_link → base_link
-            'base_frame': 'base_link',
+            # ✅ CRITICAL: Frame configuration
+            'base_frame': 'base_link',  # Robot base frame
             'map_frame': 'map',
             'odom_frame': 'odom',
             'imu_frame': 'camera_gyro_optical_frame',
             
-            # Camera frames
+            # ✅ NEW: Input frames for proper TF handling
+            'input_base_frame': 'base_link',
+            'input_left_camera_frame': 'camera_infra1_frame',
+            'input_right_camera_frame': 'camera_infra2_frame',
+            'input_imu_frame': 'camera_gyro_frame',
+            
+            # Camera optical frames
             'camera_optical_frames': [
                 'camera_infra1_optical_frame',
                 'camera_infra2_optical_frame',
             ],
+            
+            # ✅ CRITICAL: Enable TF publishing
+            'publish_tf': True,
+            'publish_map_to_odom_tf': True,
+            'publish_odom_to_base_tf': True,
+            'invert_map_to_odom_tf': False,
+            'invert_odom_to_base_tf': False,
             
             # Ground constraint for 2D navigation
             'enable_ground_constraint_in_odometry': LaunchConfiguration('enable_ground_constraint'),
@@ -87,6 +92,10 @@ def generate_launch_description():
             # Map management
             'enable_localization_n_mapping': True,
             'path_max_size': 1024,
+            
+            # ✅ ADDED: Performance tuning
+            'num_cameras': 1,
+            'min_num_images': 2,
         }],
         remappings=[
             ('visual_slam/image_0', [camera_name, '/infra1/image_rect_raw']),
@@ -102,7 +111,7 @@ def generate_launch_description():
         name='visual_slam_container',
         namespace='',
         package='rclcpp_components',
-        executable='component_container_mt',
+        executable='component_container_mt',  # Multi-threaded
         composable_node_descriptions=[visual_slam_node],
         output='screen',
     )
@@ -111,6 +120,5 @@ def generate_launch_description():
         camera_name_arg,
         enable_imu_fusion_arg,
         enable_ground_constraint_arg,
-        base_to_camera_tf,  # Static TF 먼저!
         visual_slam_container,
     ])

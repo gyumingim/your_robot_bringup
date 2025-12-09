@@ -9,6 +9,12 @@ Launches complete Isaac ROS navigation stack:
 - Depth to LaserScan
 - Nav2
 - RViz2
+
+CRITICAL FIXES:
+1. ✅ Static TF published FIRST (before any nodes)
+2. ✅ Proper timing for all nodes
+3. ✅ RViz disabled by default (headless Docker)
+4. ✅ All frames properly configured
 """
 
 from launch import LaunchDescription
@@ -26,7 +32,6 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    # Package name (변경 필요)
     pkg_name = 'your_robot_bringup'
     
     # ===== Launch Arguments =====
@@ -44,7 +49,7 @@ def generate_launch_description():
     
     enable_rviz_arg = DeclareLaunchArgument(
         'enable_rviz',
-        default_value='true',
+        default_value='false',  # ✅ CHANGED: false for headless Docker
         description='Launch RViz2'
     )
     
@@ -56,8 +61,8 @@ def generate_launch_description():
     
     enable_robot_localization_arg = DeclareLaunchArgument(
         'enable_robot_localization',
-        default_value='true',
-        description='Enable robot_localization EKF'
+        default_value='false',  # ✅ CHANGED: false (VSLAM publishes TF directly)
+        description='Enable robot_localization EKF (not needed if VSLAM publishes TF)'
     )
     
     enable_ground_constraint_arg = DeclareLaunchArgument(
@@ -75,41 +80,46 @@ def generate_launch_description():
         description='Nav2 parameters file'
     )
 
-    # ===== Static TF Publishers =====
+    # ===== CRITICAL: Static TF (MUST BE FIRST!) =====
     # base_link → camera_link static transform
-    # RealSense 카메라가 로봇 중심에서 약간 앞쪽 위에 있다고 가정
+    # ⚠️ ADJUST THESE VALUES based on your camera mount position!
     base_to_camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='base_to_camera_tf',
         arguments=[
-            '0.05', '0.0', '0.1',  # x=5cm 앞, y=0, z=10cm 위
-            '0.0', '0.0', '0.0',   # roll, pitch, yaw = 0
+            '0.05', '0.0', '0.1',  # x=5cm forward, y=0, z=10cm up
+            '0.0', '0.0', '0.0',   # roll=0, pitch=0, yaw=0 (HORIZONTAL mount)
             'base_link', 'camera_link'
         ],
         output='screen'
     )
 
     # ===== Sensor Layer =====
-    # 1. RealSense Camera (가장 먼저 실행)
-    realsense_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare(pkg_name),
-                'launch', 'sensors', 'realsense.launch.py'
-            ])
-        ]),
-        launch_arguments={
-            'camera_name': LaunchConfiguration('camera_name'),
-            'enable_depth': 'true',
-            'enable_color': 'true',
-        }.items()
+    # 1. RealSense Camera (starts immediately after static TF)
+    realsense_launch = TimerAction(
+        period=0.5,  # Small delay to ensure TF is published
+        actions=[
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource([
+                    PathJoinSubstitution([
+                        FindPackageShare(pkg_name),
+                        'launch', 'sensors', 'realsense.launch.py'
+                    ])
+                ]),
+                launch_arguments={
+                    'camera_name': LaunchConfiguration('camera_name'),
+                    'enable_depth': 'true',
+                    'enable_color': 'true',
+                }.items()
+            )
+        ]
     )
 
     # ===== Perception Layer =====
-    # 2. Visual SLAM (1초 지연 후 실행)
+    # 2. Visual SLAM (2초 지연 - 카메라 준비 대기)
     vslam_launch = TimerAction(
-        period=1.0,
+        period=2.0,  # ✅ INCREASED: Wait for camera to fully initialize
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -127,9 +137,10 @@ def generate_launch_description():
         ]
     )
     
-    # 3. Robot Localization (2초 지연)
+    # 3. Robot Localization (OPTIONAL - 4초 지연)
+    # ⚠️ NOTE: Not needed if VSLAM publishes TF directly!
     robot_localization_launch = TimerAction(
-        period=2.0,
+        period=4.0,
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -146,9 +157,9 @@ def generate_launch_description():
         ]
     )
 
-    # 4. Nvblox 3D Reconstruction (2초 지연)
+    # 4. Nvblox 3D Reconstruction (3초 지연 - VSLAM 초기화 대기)
     nvblox_launch = TimerAction(
-        period=2.0,
+        period=3.0,  # ✅ CHANGED: After VSLAM starts
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -159,15 +170,15 @@ def generate_launch_description():
                 ]),
                 launch_arguments={
                     'camera_name': LaunchConfiguration('camera_name'),
-                    'global_frame': 'odom',
+                    'global_frame': 'odom',  # ✅ Use odom (published by VSLAM)
                 }.items()
             )
         ]
     )
 
-    # 5. Depth Image to LaserScan (1.5초 지연)
+    # 5. Depth Image to LaserScan (2.5초 지연)
     depthimage_to_laserscan_launch = TimerAction(
-        period=1.5,
+        period=2.5,
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -187,9 +198,9 @@ def generate_launch_description():
     )
 
     # ===== Navigation Layer =====
-    # 6. Nav2 (3초 지연)
+    # 6. Nav2 (5초 지연 - 모든 센서 준비 대기)
     nav2_launch = TimerAction(
-        period=3.0,
+        period=5.0,  # ✅ INCREASED: Wait for VSLAM and Nvblox
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -202,7 +213,7 @@ def generate_launch_description():
                     'use_sim_time': LaunchConfiguration('use_sim_time'),
                     'params_file': LaunchConfiguration('nav2_params_file'),
                     'autostart': 'true',
-                    'use_rviz': 'false',  # RViz는 별도로 실행
+                    'use_rviz': 'false',
                 }.items(),
                 condition=IfCondition(LaunchConfiguration('enable_nav2'))
             )
@@ -210,9 +221,9 @@ def generate_launch_description():
     )
 
     # ===== Visualization Layer =====
-    # 7. RViz2 (4초 지연 - 모든 노드가 준비된 후)
+    # 7. RViz2 (6초 지연 - 모든 노드 준비 후)
     rviz_launch = TimerAction(
-        period=4.0,
+        period=6.0,
         actions=[
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource([
@@ -240,15 +251,15 @@ def generate_launch_description():
         enable_ground_constraint_arg,
         nav2_params_file_arg,
         
-        # Static TF (가장 먼저 - 즉시 필요!)
+        # ✅ CRITICAL: Static TF FIRST (no delay!)
         base_to_camera_tf,
         
-        # Launch sequence
-        realsense_launch,              # 0초: 카메라
-        vslam_launch,                  # 1초: VSLAM
-        depthimage_to_laserscan_launch,# 1.5초: Depth to Scan
-        robot_localization_launch,     # 2초: EKF
-        nvblox_launch,                 # 2초: Nvblox
-        nav2_launch,                   # 3초: Nav2
-        rviz_launch,                   # 4초: RViz2
+        # Launch sequence (with proper timing)
+        realsense_launch,              # 0.5초: 카메라
+        vslam_launch,                  # 2초: VSLAM
+        depthimage_to_laserscan_launch,# 2.5초: Depth to Scan
+        nvblox_launch,                 # 3초: Nvblox
+        robot_localization_launch,     # 4초: EKF (optional)
+        nav2_launch,                   # 5초: Nav2
+        rviz_launch,                   # 6초: RViz2
     ])
